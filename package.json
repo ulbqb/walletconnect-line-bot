@@ -1,0 +1,28 @@
+{
+  "name": "line-connect-wallet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "deploy:functions": "supabase functions deploy webhook --no-verify-jwt"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@line/bot-sdk": "^9.2.2",
+    "@supabase/supabase-js": "^2.44.3",
+    "@walletconnect/modal": "^2.6.2",
+    "@walletconnect/sign-client": "^2.13.3",
+    "@walletconnect/types": "^2.13.3",
+    "@walletconnect/utils": "^2.13.3",
+    "deasync": "^0.1.30",
+    "dotenv": "^16.4.5",
+    "inquirer": "^10.0.1",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "supabase": "^1.183.5",
+    "typescript": "^5.5.3"
+  }
+}
