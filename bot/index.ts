@@ -136,8 +136,23 @@ async function connect(bot: Web3BotClient, event: MessageEvent) {
                   type: "uri",
                   label: "Metamask",
                   uri:
-                    "https://metamask.app.link/wc?uri=" +
-                    encodeURIComponent(uri),
+                    "https://universal-link-proxy.vercel.app/?url=" +
+                    encodeURIComponent(
+                      "metamask://wc?uri=" + encodeURIComponent(uri)
+                    ),
+                },
+              },
+              {
+                type: "action",
+                action: {
+                  type: "uri",
+                  label: "Metamask@Wallet",
+                  uri:
+                    process.env.MINI_WALLET_URL +
+                    "?url=" +
+                    encodeURIComponent(
+                      "metamask://wc?uri=" + encodeURIComponent(uri)
+                    ),
                 },
               },
             ],
