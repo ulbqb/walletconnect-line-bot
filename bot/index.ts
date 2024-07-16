@@ -2,11 +2,19 @@
 
 import dotenv from "dotenv";
 dotenv.config();
-import { MessageEvent, TextMessage, QuickReply } from "@line/bot-sdk";
-import { Web3BotClient, createWeb3BotClient } from "./web3_bot_client";
+import { MessageEvent, TextMessage } from "@line/bot-sdk";
+import { KaiaBotClient, createKaiaBotClient } from "./kaia_bot_client";
 import { getSdkError } from "@walletconnect/utils";
+import { Transaction } from "web3-types";
 
-const bot = createWeb3BotClient();
+const bot = createKaiaBotClient({
+  sbUrl: process.env.SUPABASE_URL ?? "",
+  sbKey: process.env.SUPABASE_KEY ?? "",
+  sbChannelId: process.env.SUPABASE_CHANNEL_ID ?? "",
+  lineAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "",
+  wcProjectId: process.env.WALLET_CONNECT_PROJECT_ID ?? "",
+  rpcEndpoint: process.env.RPC_ENDPOINT ?? "",
+});
 
 bot.on("message", (event: MessageEvent) => {
   if (event.message.type == "text") {
@@ -31,7 +39,7 @@ bot.on("message", (event: MessageEvent) => {
 
 bot.start();
 
-async function say_hello(bot: Web3BotClient, event: MessageEvent) {
+async function say_hello(bot: KaiaBotClient, event: MessageEvent) {
   try {
     const to = event.source.userId || "";
     const messages: Array<TextMessage> = [
@@ -76,13 +84,13 @@ async function say_hello(bot: Web3BotClient, event: MessageEvent) {
         },
       },
     ];
-    await bot.lineMessagingApiClient.pushMessage({ to, messages });
+    await bot.sendMessage(to, messages);
   } catch (e) {
     console.log(e);
   }
 }
 
-async function connect(bot: Web3BotClient, event: MessageEvent) {
+async function connect(bot: KaiaBotClient, event: MessageEvent) {
   try {
     const to = event.source.userId || "";
     const wallet = bot.getWalletInfo(to);
@@ -93,10 +101,10 @@ async function connect(bot: Web3BotClient, event: MessageEvent) {
           text: `You have already connect ${wallet.metadata.name}\nYour address: ${wallet.addresses[0]}\n\nDisconnect wallet firstly to connect a new one`,
         },
       ];
-      await bot.lineMessagingApiClient.pushMessage({ to, messages });
+      await bot.sendMessage(to, messages);
       return;
     }
-    const { uri, approval } = await bot.wcSignClient.connect({
+    const { uri, approval } = await bot.connect({
       requiredNamespaces: {
         eip155: {
           methods: [
@@ -159,10 +167,10 @@ async function connect(bot: Web3BotClient, event: MessageEvent) {
           },
         },
       ];
-      await bot.lineMessagingApiClient.pushMessage({ to, messages });
+      await bot.sendMessage(to, messages);
 
       const session = await approval();
-      bot.wcTopics[to] = session.topic;
+      bot.setTopic(to, session.topic);
       const wallet = bot.getWalletInfo(to);
       messages = [
         {
@@ -170,14 +178,14 @@ async function connect(bot: Web3BotClient, event: MessageEvent) {
           text: `${wallet?.metadata.name} connected successfully`,
         },
       ];
-      await bot.lineMessagingApiClient.pushMessage({ to, messages });
+      await bot.sendMessage(to, messages);
     }
   } catch (e) {
     console.log(e);
   }
 }
 
-async function myWallet(bot: Web3BotClient, event: MessageEvent) {
+async function myWallet(bot: KaiaBotClient, event: MessageEvent) {
   try {
     const to = event.source.userId || "";
     const wallet = bot.getWalletInfo(to);
@@ -188,7 +196,7 @@ async function myWallet(bot: Web3BotClient, event: MessageEvent) {
           text: "You didn't connect a wallet",
         },
       ];
-      await bot.lineMessagingApiClient.pushMessage({ to, messages });
+      await bot.sendMessage(to, messages);
       return;
     }
     let messages: Array<TextMessage> = [
@@ -197,13 +205,13 @@ async function myWallet(bot: Web3BotClient, event: MessageEvent) {
         text: `Connected wallet: ${wallet.metadata.name}\nYour address: ${wallet.addresses[0]}`,
       },
     ];
-    await bot.lineMessagingApiClient.pushMessage({ to, messages });
+    await bot.sendMessage(to, messages);
   } catch (e) {
     console.log(e);
   }
 }
 
-async function sendTx(bot: Web3BotClient, event: MessageEvent) {
+async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
   try {
     const to = event.source.userId || "";
     const wallet = bot.getWalletInfo(to);
@@ -214,7 +222,7 @@ async function sendTx(bot: Web3BotClient, event: MessageEvent) {
           text: "Connect wallet to send transaction",
         },
       ];
-      await bot.lineMessagingApiClient.pushMessage({ to, messages });
+      await bot.sendMessage(to, messages);
       return;
     }
 
@@ -229,29 +237,38 @@ async function sendTx(bot: Web3BotClient, event: MessageEvent) {
               action: {
                 type: "uri",
                 label: `Open ${wallet.metadata.name}`,
-                uri: wallet.metadata.redirect?.universal || "",
+                uri:
+                  "https://universal-link-proxy.vercel.app/?url=" +
+                  encodeURIComponent(wallet.metadata.redirect?.universal || ""),
               },
             },
           ],
         },
       },
     ];
-    await bot.lineMessagingApiClient.pushMessage({ to, messages });
+    await bot.sendMessage(to, messages);
 
-    const topic = bot.wcTopics[to] || "";
-    const transactionId = await bot.wcSignClient.request({
+    const topic = bot.getTopic(to);
+    const tx: Transaction = {
+      from: wallet?.addresses[0],
+      to: "0x0000000000000000000000000000000000000000",
+      value: "0x01",
+    };
+    const gasPrice = await bot.getGasPrice();
+    const gas = await bot.estimateGas(tx);
+    const transactionId = await bot.request({
       topic: topic,
       chainId: "eip155:1001",
       request: {
         method: "eth_sendTransaction",
         params: [
           {
-            from: wallet?.addresses[0],
-            to: "0x0000000000000000000000000000000000000000",
-            data: "0x",
-            gasPrice: "0x029104e28c",
-            gas: "0x5208",
-            value: "0x01",
+            from: tx.from,
+            to: tx.to,
+            data: tx.data,
+            gasPrice: gasPrice,
+            gas: gas,
+            value: tx.value,
           },
         ],
       },
@@ -263,13 +280,13 @@ async function sendTx(bot: Web3BotClient, event: MessageEvent) {
         text: `Transaction result\nhttps://baobab.klaytnscope.com/tx/${transactionId}`,
       },
     ];
-    await bot.lineMessagingApiClient.pushMessage({ to, messages });
+    await bot.sendMessage(to, messages);
   } catch (e) {
     console.log(e);
   }
 }
 
-async function disconnect(bot: Web3BotClient, event: MessageEvent) {
+async function disconnect(bot: KaiaBotClient, event: MessageEvent) {
   try {
     const to = event.source.userId || "";
     if (!bot.getWalletInfo(to)) {
@@ -279,24 +296,24 @@ async function disconnect(bot: Web3BotClient, event: MessageEvent) {
           text: "You didn't connect a wallet",
         },
       ];
-      await bot.lineMessagingApiClient.pushMessage({ to, messages });
+      await bot.sendMessage(to, messages);
       return;
     }
 
-    const topic = bot.wcTopics[to] || "";
+    const topic = bot.getTopic(to);
 
-    await bot.wcSignClient.disconnect({
+    await bot.disconnect({
       topic: topic,
       reason: getSdkError("USER_DISCONNECTED"),
     });
-    delete bot.wcTopics[to];
+    bot.deleteTopic(to);
     const messages: Array<TextMessage> = [
       {
         type: "text",
         text: "Wallet has been disconnected",
       },
     ];
-    await bot.lineMessagingApiClient.pushMessage({ to, messages });
+    await bot.sendMessage(to, messages);
   } catch (e) {
     console.log(e);
   }

@@ -1,7 +1,5 @@
 "use strict";
 
-import dotenv from "dotenv";
-dotenv.config();
 import {
   SupabaseClient,
   RealtimeChannel,
@@ -9,41 +7,47 @@ import {
 } from "@supabase/supabase-js";
 import { messagingApi } from "@line/bot-sdk";
 import { SignClient } from "@walletconnect/sign-client";
+import { EngineTypes, SessionTypes } from "@walletconnect/types";
 import { ISignClient, SignClientTypes } from "@walletconnect/types";
+import { Web3 } from "web3";
+import { Transaction } from "web3-types";
 
-export class Web3BotClient {
+export type Config = {
+  sbUrl: string;
+  sbKey: string;
+  sbChannelId: string;
+  lineAccessToken: string;
+  wcProjectId: string;
+  rpcEndpoint: string;
+};
+
+export class KaiaBotClient {
   sbClient: SupabaseClient<any>;
   sbChannel: RealtimeChannel;
   lineMessagingApiClient: messagingApi.MessagingApiClient;
   wcSignClient: ISignClient;
   wcTopics: { [key: string]: string };
   callbacks: { [key: string]: (event: any) => void };
+  web3Client: Web3;
 
-  constructor() {
+  constructor(conf: Config) {
     // supabase
-    this.sbClient = createClient(
-      process.env.SUPABASE_URL ?? "",
-      process.env.SUPABASE_KEY ?? ""
-    );
-    this.sbChannel = this.sbClient.channel(
-      process.env.SUPABASE_CHANNEL_ID ?? ""
-    );
+    this.sbClient = createClient(conf.sbUrl, conf.sbKey);
+    this.sbChannel = this.sbClient.channel(conf.sbChannelId);
 
     // line
     this.lineMessagingApiClient = new messagingApi.MessagingApiClient({
-      channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "",
+      channelAccessToken: conf.lineAccessToken,
     });
 
     // wallet connect
     let bufClient: ISignClient | null = null;
     SignClient.init({
-      projectId: process.env.WALLET_CONNECT_PROJECT_ID,
-      // optional parameters
-      // relayUrl: "<YOUR RELAY URL>",
+      projectId: conf.wcProjectId,
       metadata: {
         name: "Wallet Connect Bot",
         description: "Wallet Connect Bot",
-        url: "https://line.me",
+        url: "https://example.com",
         icons: ["https://walletconnect.com/walletconnect-logo.png"],
       },
     })
@@ -57,8 +61,14 @@ export class Web3BotClient {
 
     // bot
     this.callbacks = {};
+
+    // web3
+    this.web3Client = new Web3(
+      new Web3.providers.HttpProvider(conf.rpcEndpoint)
+    );
   }
 
+  // supabase
   async start() {
     this.sbChannel
       .on("broadcast", { event: "webhook" }, (payload) => {
@@ -74,6 +84,39 @@ export class Web3BotClient {
 
   on(type: string, callback: (event: any) => void) {
     this.callbacks[type] = callback;
+  }
+
+  // line
+  async sendMessage(to: string, messages: Array<messagingApi.Message>) {
+    await this.lineMessagingApiClient.pushMessage({ to, messages });
+  }
+
+  // walletconnect
+  async connect(params: EngineTypes.ConnectParams): Promise<{
+    uri?: string;
+    approval: () => Promise<SessionTypes.Struct>;
+  }> {
+    return await this.wcSignClient.connect(params);
+  }
+
+  async disconnect(params: EngineTypes.DisconnectParams): Promise<void> {
+    await this.wcSignClient.disconnect(params);
+  }
+
+  async request<T>(params: EngineTypes.RequestParams): Promise<T> {
+    return await this.wcSignClient.request(params);
+  }
+
+  getTopic(to: string): string {
+    return this.wcTopics[to] || "";
+  }
+
+  setTopic(to: string, topic: string) {
+    this.wcTopics[to] = topic;
+  }
+
+  deleteTopic(to: string) {
+    delete this.wcTopics[to];
   }
 
   getWalletInfo(
@@ -96,8 +139,19 @@ export class Web3BotClient {
       return null;
     }
   }
+
+  // rpc
+  async getGasPrice(): Promise<string> {
+    return this.web3Client.utils.toHex(await this.web3Client.eth.getGasPrice());
+  }
+
+  async estimateGas(transaction: Transaction): Promise<string> {
+    return this.web3Client.utils.toHex(
+      await this.web3Client.eth.estimateGas(transaction)
+    );
+  }
 }
 
-export function createWeb3BotClient(): Web3BotClient {
-  return new Web3BotClient();
+export function createKaiaBotClient(conf: Config): KaiaBotClient {
+  return new KaiaBotClient(conf);
 }
