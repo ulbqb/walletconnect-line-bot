@@ -131,36 +131,37 @@ async function connect(bot: KaiaBotClient, event: MessageEvent) {
                 type: "action",
                 action: {
                   type: "uri",
-                  label: "@Wallet",
-                  uri:
-                    process.env.MINI_WALLET_URL +
-                    "/wc?uri=" +
-                    encodeURIComponent(uri),
-                },
-              },
-              {
-                type: "action",
-                action: {
-                  type: "uri",
                   label: "Metamask",
-                  uri:
-                    "https://universal-link-proxy.vercel.app/?url=" +
-                    encodeURIComponent(
-                      "metamask://wc?uri=" + encodeURIComponent(uri)
-                    ),
-                },
-              },
-              {
-                type: "action",
-                action: {
-                  type: "uri",
-                  label: "Metamask@Wallet",
                   uri:
                     process.env.MINI_WALLET_URL +
                     "?url=" +
                     encodeURIComponent(
                       "metamask://wc?uri=" + encodeURIComponent(uri)
                     ),
+                },
+              },
+              {
+                type: "action",
+                action: {
+                  type: "uri",
+                  label: "@Wallet(unsupported)",
+                  uri: "https://www.vocabulary.com/dictionary/unsupported",
+                },
+              },
+              {
+                type: "action",
+                action: {
+                  type: "uri",
+                  label: "Kaikas(unsupported)",
+                  uri: "https://www.vocabulary.com/dictionary/unsupported",
+                },
+              },
+              {
+                type: "action",
+                action: {
+                  type: "uri",
+                  label: "Trust(unsupported)",
+                  uri: "https://www.vocabulary.com/dictionary/unsupported",
                 },
               },
             ],
@@ -238,7 +239,8 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
                 type: "uri",
                 label: `Open ${wallet.metadata.name}`,
                 uri:
-                  "https://universal-link-proxy.vercel.app/?url=" +
+                  process.env.MINI_WALLET_URL +
+                  "?url=" +
                   encodeURIComponent(wallet.metadata.redirect?.universal || ""),
               },
             },
