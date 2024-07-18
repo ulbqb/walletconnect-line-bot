@@ -134,7 +134,7 @@ async function connect(bot: KaiaBotClient, event: MessageEvent) {
                   label: "Metamask",
                   uri:
                     process.env.MINI_WALLET_URL +
-                    "?url=" +
+                    "/open/wallet/?url=" +
                     encodeURIComponent(
                       "metamask://wc?uri=" + encodeURIComponent(uri)
                     ),
@@ -240,7 +240,7 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
                 label: `Open ${wallet.metadata.name}`,
                 uri:
                   process.env.MINI_WALLET_URL +
-                  "?url=" +
+                  "/open/wallet/?url=" +
                   encodeURIComponent(wallet.metadata.redirect?.universal || ""),
               },
             },
