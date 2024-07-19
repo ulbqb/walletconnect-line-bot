@@ -133,7 +133,7 @@ async function connect(bot: KaiaBotClient, event: MessageEvent) {
                   type: "uri",
                   label: "Metamask",
                   uri:
-                    process.env.MINI_WALLET_URL +
+                    process.env.MINI_WALLET_URL_COMPACT +
                     "/open/wallet/?url=" +
                     encodeURIComponent(
                       "metamask://wc?uri=" + encodeURIComponent(uri)
@@ -144,8 +144,11 @@ async function connect(bot: KaiaBotClient, event: MessageEvent) {
                 type: "action",
                 action: {
                   type: "uri",
-                  label: "@Wallet(unsupported)",
-                  uri: "https://www.vocabulary.com/dictionary/unsupported",
+                  label: "Mini Wallet",
+                  uri:
+                    process.env.MINI_WALLET_URL_TALL +
+                    "/wc/?uri=" +
+                    encodeURIComponent(uri),
                 },
               },
               {
@@ -227,6 +230,18 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
       return;
     }
 
+    let uri = "";
+    switch (wallet.metadata.name) {
+      case "Metamask Wallet":
+        uri =
+          process.env.MINI_WALLET_URL_COMPACT +
+          "/open/wallet/?url=" +
+          encodeURIComponent(wallet.metadata.redirect?.universal || "");
+        break;
+      case "Mini Wallet":
+        uri = process.env.MINI_WALLET_URL_TALL!;
+        break;
+    }
     let messages: Array<TextMessage> = [
       {
         type: "text",
@@ -237,11 +252,8 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
               type: "action",
               action: {
                 type: "uri",
-                label: `Open ${wallet.metadata.name}`,
-                uri:
-                  process.env.MINI_WALLET_URL +
-                  "/open/wallet/?url=" +
-                  encodeURIComponent(wallet.metadata.redirect?.universal || ""),
+                label: `Open Wallet`,
+                uri: uri,
               },
             },
           ],
@@ -254,7 +266,7 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
     const tx: Transaction = {
       from: wallet?.addresses[0],
       to: "0x0000000000000000000000000000000000000000",
-      value: "0x01",
+      value: "0x1",
     };
     const gasPrice = await bot.getGasPrice();
     const gas = await bot.estimateGas(tx);
@@ -269,7 +281,7 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
             to: tx.to,
             data: tx.data,
             gasPrice: gasPrice,
-            gas: gas,
+            gasLimit: gas,
             value: tx.value,
           },
         ],
