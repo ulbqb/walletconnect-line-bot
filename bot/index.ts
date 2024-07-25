@@ -232,7 +232,7 @@ async function sendTx(bot: KaiaBotClient, event: MessageEvent) {
 
     let uri = "";
     switch (wallet.metadata.name) {
-      case "Metamask Wallet":
+      case "MetaMask Wallet":
         uri =
           process.env.MINI_WALLET_URL_COMPACT +
           "/open/wallet/?url=" +
